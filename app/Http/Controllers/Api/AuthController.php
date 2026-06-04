@@ -35,6 +35,8 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
+        $this->logActivity($request, 'Inicio de sesión');
+
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'user' => $request->user()->only(['id', 'username', 'role', 'has_paid'])]);
         }
@@ -44,6 +46,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse|JsonResponse
     {
+        $this->logActivity($request, 'Cierre de sesión');
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -88,6 +91,8 @@ class AuthController extends Controller
 
         $user->update(['password' => $data['new_password']]);
 
+        $this->logActivity($request, 'Cambio de contraseña');
+
         if ($request->expectsJson()) {
             return response()->json(['success' => true]);
         }
@@ -113,6 +118,8 @@ class AuthController extends Controller
             'role' => 'user',
             'has_paid' => false,
         ]);
+
+        $this->logActivity($request, 'Registró usuario', $user->username);
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'user' => $user->only(['id', 'username', 'role', 'has_paid'])]);

@@ -93,6 +93,8 @@ class PollaController extends Controller
             }
         });
 
+        $this->logActivity($request, 'Guardó pronósticos', "{$saved} partido(s)");
+
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'saved' => $saved]);
         }

@@ -42,6 +42,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/registro', [AuthController::class, 'registerForm'])->name('register');
         Route::post('/registro', [AuthController::class, 'register'])->name('register.store');
 
+        Route::get('/bitacora', [AdminController::class, 'logs'])->name('logs');
+
         Route::get('/configuracion', [AdminController::class, 'settings'])->name('settings');
         Route::post('/configuracion', [AdminController::class, 'saveSettings'])->name('settings.save');
         Route::get('/usuarios', [AdminController::class, 'users'])->name('users');

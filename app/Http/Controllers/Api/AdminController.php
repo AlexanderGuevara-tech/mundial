@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\GameMatch;
 use App\Models\User;
 use App\Services\PollaSettings;
@@ -31,11 +32,12 @@ class AdminController extends Controller
         $data = $request->validate(['has_paid' => ['required', 'boolean']]);
         $user->update(['has_paid' => $data['has_paid']]);
 
+        $status = $data['has_paid'] ? 'habilitado' : 'deshabilitado';
+        $this->logActivity($request, 'Cambió pago de usuario', "{$user->username}: {$status}");
+
         if ($request->expectsJson()) {
             return response()->json(['success' => true]);
         }
-
-        $status = $data['has_paid'] ? 'habilitado' : 'deshabilitado';
 
         return redirect()->route('admin.users')->with('success', "Pago de {$user->username} {$status}.");
     }
@@ -56,6 +58,8 @@ class AdminController extends Controller
         foreach ($data as $key => $value) {
             $settings->upsert($key, $value ?? '');
         }
+
+        $this->logActivity($request, 'Guardó configuración', json_encode($data));
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'settings' => $settings->all()]);
@@ -93,6 +97,8 @@ class AdminController extends Controller
         $result = $scoring->calculate();
         Log::info('Puntajes recalculados automáticamente tras guardar resultados', $result);
 
+        $this->logActivity($request, 'Guardó resultados', "{$saved} partido(s), {$result['updated']} pronóstico(s) actualizado(s)");
+
         $msg = "{$saved} resultado(s) guardado(s) y puntajes recalculados ({$result['updated']} pronósticos actualizados).";
 
         if ($request->expectsJson()) {
@@ -105,6 +111,7 @@ class AdminController extends Controller
     public function calculate(Request $request, ScoringService $scoring): RedirectResponse|JsonResponse
     {
         $result = $scoring->calculate();
+        $this->logActivity($request, 'Recalculó puntajes', "{$result['updated']} pronóstico(s) actualizado(s)");
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true, ...$result]);
@@ -122,6 +129,16 @@ class AdminController extends Controller
             ->get();
 
         return view('admin.results', compact('matches'));
+    }
+
+    public function logs(Request $request): View
+    {
+        $entries = ActivityLog::query()
+            ->with('user:id,username')
+            ->recent()
+            ->paginate(50);
+
+        return view('admin.logs', compact('entries'));
     }
 
     public function resultsDetail(PollaController $polla): View
