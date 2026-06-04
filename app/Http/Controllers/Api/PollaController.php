@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class PollaController extends Controller
@@ -48,12 +49,7 @@ class PollaController extends Controller
 
     public function savePredictions(Request $request, PollaSettings $settings): RedirectResponse|JsonResponse
     {
-        $data = $request->validate([
-            'predictions' => ['required', 'array'],
-            'predictions.*.match_id' => ['required', 'integer', 'exists:matches,id'],
-            'predictions.*.score_home' => ['required', 'integer', 'min:0', 'max:99'],
-            'predictions.*.score_away' => ['required', 'integer', 'min:0', 'max:99'],
-        ]);
+        $predictions = $request->input('predictions', []);
 
         if ($settings->deadlinePassed()) {
             if ($request->expectsJson()) {
@@ -71,20 +67,37 @@ class PollaController extends Controller
             return back()->with('error', 'Debes estar habilitado para guardar predicciones.');
         }
 
-        DB::transaction(function () use ($request, $data): void {
-            foreach ($data['predictions'] as $prediction) {
+        $saved = 0;
+
+        DB::transaction(function () use ($request, $predictions, &$saved): void {
+            foreach ($predictions as $matchId => $prediction) {
+                $home = $prediction['score_home'] ?? null;
+                $away = $prediction['score_away'] ?? null;
+
+                if (! is_numeric($home) || ! is_numeric($away)) {
+                    continue;
+                }
+
+                $home = (int) $home;
+                $away = (int) $away;
+
+                if ($home < 0 || $home > 99 || $away < 0 || $away > 99) {
+                    continue;
+                }
+
                 Prediction::query()->updateOrCreate(
-                    ['user_id' => $request->user()->id, 'match_id' => $prediction['match_id']],
-                    ['score_home' => $prediction['score_home'], 'score_away' => $prediction['score_away']]
+                    ['user_id' => $request->user()->id, 'match_id' => (int) $matchId],
+                    ['score_home' => $home, 'score_away' => $away]
                 );
+                $saved++;
             }
         });
 
         if ($request->expectsJson()) {
-            return response()->json(['success' => true, 'saved' => count($data['predictions'])]);
+            return response()->json(['success' => true, 'saved' => $saved]);
         }
 
-        return redirect()->route('predictions')->with('success', 'Pronósticos guardados correctamente.');
+        return redirect()->route('predictions')->with('success', "{$saved} pronóstico(s) guardado(s) correctamente.");
     }
 
     public function leaderboard(): View

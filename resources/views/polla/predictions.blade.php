@@ -48,13 +48,7 @@
                                 @else
                                     <input
                                         type="number"
-                                        name="predictions[{{ $loop->index }}][match_id]"
-                                        value="{{ $match->id }}"
-                                        hidden
-                                    >
-                                    <input
-                                        type="number"
-                                        name="predictions[{{ $loop->index }}][score_home]"
+                                        name="predictions[{{ $match->id }}][score_home]"
                                         value="{{ $pred['score_home'] ?? '' }}"
                                         min="0"
                                         max="99"
@@ -65,7 +59,7 @@
                                     <span class="text-gray-400 text-xs">-</span>
                                     <input
                                         type="number"
-                                        name="predictions[{{ $loop->index }}][score_away]"
+                                        name="predictions[{{ $match->id }}][score_away]"
                                         value="{{ $pred['score_away'] ?? '' }}"
                                         min="0"
                                         max="99"

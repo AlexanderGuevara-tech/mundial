@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -63,29 +64,42 @@ class AdminController extends Controller
         return redirect()->route('admin.settings')->with('success', 'Configuración guardada.');
     }
 
-    public function saveResults(Request $request): RedirectResponse|JsonResponse
+    public function saveResults(Request $request, ScoringService $scoring): RedirectResponse|JsonResponse
     {
         $data = $request->validate([
             'results' => ['required', 'array'],
             'results.*.match_id' => ['required', 'integer', 'exists:matches,id'],
-            'results.*.result_home' => ['required', 'integer', 'min:0', 'max:99'],
-            'results.*.result_away' => ['required', 'integer', 'min:0', 'max:99'],
+            'results.*.result_home' => ['nullable', 'integer', 'min:0', 'max:99'],
+            'results.*.result_away' => ['nullable', 'integer', 'min:0', 'max:99'],
         ]);
 
-        DB::transaction(function () use ($data): void {
+        $saved = 0;
+
+        DB::transaction(function () use ($data, &$saved): void {
             foreach ($data['results'] as $result) {
+                if (is_null($result['result_home']) || is_null($result['result_away'])) {
+                    continue;
+                }
+
                 GameMatch::query()->whereKey($result['match_id'])->update([
                     'result_home' => $result['result_home'],
                     'result_away' => $result['result_away'],
                 ]);
+                $saved++;
             }
         });
 
+        // Recalcular puntajes automáticamente
+        $result = $scoring->calculate();
+        Log::info('Puntajes recalculados automáticamente tras guardar resultados', $result);
+
+        $msg = "{$saved} resultado(s) guardado(s) y puntajes recalculados ({$result['updated']} pronósticos actualizados).";
+
         if ($request->expectsJson()) {
-            return response()->json(['success' => true]);
+            return response()->json(['success' => true, 'message' => $msg]);
         }
 
-        return redirect()->route('admin.results')->with('success', 'Resultados guardados. No olvides recalcular los puntajes.');
+        return redirect()->route('admin.results')->with('success', $msg);
     }
 
     public function calculate(Request $request, ScoringService $scoring): RedirectResponse|JsonResponse
