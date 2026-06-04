@@ -28,3 +28,9 @@ Thumbs.db
 
 .history
 .atl
+openspec/config.yaml
+openspec/changes/docker-laravel-deploy/proposal.md
+openspec/changes/docker-laravel-deploy/design.md
+openspec/changes/docker-laravel-deploy/specs/deployment-automation/spec.md
+openspec/changes/docker-laravel-deploy/specs/docker-infrastructure/spec.md
+openspec/changes/docker-laravel-deploy/tasks.md

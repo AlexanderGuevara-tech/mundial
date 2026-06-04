@@ -6,6 +6,12 @@ use App\Http\Controllers\Api\PollaController;
 use App\Http\Middleware\EnsureAdmin;
 use Illuminate\Support\Facades\Route;
 
+// Health check — no auth, no middleware, returns 200 when app is reachable
+Route::get('/health', fn() => response()->json([
+    'status' => 'ok',
+    'timestamp' => now()->toIso8601String(),
+]));
+
 Route::get('/', function () {
     if (auth()->check()) {
         return redirect()->route('groups');
