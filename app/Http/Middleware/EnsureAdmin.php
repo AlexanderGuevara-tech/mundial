@@ -11,7 +11,11 @@ class EnsureAdmin
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->user()?->isAdmin()) {
-            return response()->json(['error' => 'Acceso solo para administradores.'], 403);
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'Acceso solo para administradores.'], 403);
+            }
+
+            return redirect()->route('home')->with('error', 'Acceso solo para administradores.');
         }
 
         return $next($request);

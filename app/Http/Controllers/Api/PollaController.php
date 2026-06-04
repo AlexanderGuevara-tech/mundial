@@ -7,16 +7,18 @@ use App\Models\GameMatch;
 use App\Models\Prediction;
 use App\Services\PollaSettings;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class PollaController extends Controller
 {
-    public function groups(): JsonResponse
+    public function groups(): View
     {
-        return response()->json(
-            GameMatch::query()->orderBy('group_name')->orderBy('match_date')->orderBy('id')->get()->groupBy('group_name')
-        );
+        $groups = GameMatch::query()->orderBy('group_name')->orderBy('match_date')->orderBy('id')->get()->groupBy('group_name');
+
+        return view('polla.groups', compact('groups'));
     }
 
     public function settings(PollaSettings $settings): JsonResponse
@@ -24,19 +26,27 @@ class PollaController extends Controller
         return response()->json([...$settings->all(), 'deadlinePassed' => $settings->deadlinePassed()]);
     }
 
-    public function predictions(Request $request): JsonResponse
+    public function predictions(Request $request): View
     {
+        $groups = GameMatch::query()->orderBy('group_name')->orderBy('match_date')->orderBy('id')->get()->groupBy('group_name');
+        $settings = app(PollaSettings::class);
+
         $items = Prediction::query()->where('user_id', $request->user()->id)->get();
-        $map = [];
+        $predictions = [];
 
         foreach ($items as $prediction) {
-            $map[$prediction->match_id] = $prediction->only(['score_home', 'score_away']);
+            $predictions[$prediction->match_id] = $prediction->only(['score_home', 'score_away']);
         }
 
-        return response()->json($map);
+        return view('polla.predictions', [
+            'groups' => $groups,
+            'predictions' => $predictions,
+            'deadlinePassed' => $settings->deadlinePassed(),
+            'hasPaid' => $request->user()->has_paid,
+        ]);
     }
 
-    public function savePredictions(Request $request, PollaSettings $settings): JsonResponse
+    public function savePredictions(Request $request, PollaSettings $settings): RedirectResponse|JsonResponse
     {
         $data = $request->validate([
             'predictions' => ['required', 'array'],
@@ -46,11 +56,19 @@ class PollaController extends Controller
         ]);
 
         if ($settings->deadlinePassed()) {
-            return response()->json(['error' => 'El plazo para predicciones ha vencido.'], 403);
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'El plazo para predicciones ha vencido.'], 403);
+            }
+
+            return back()->with('error', 'El plazo para predicciones ha vencido.');
         }
 
         if (! $request->user()->has_paid) {
-            return response()->json(['error' => 'Debes estar habilitado (pago confirmado) para guardar predicciones.'], 403);
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'Debes estar habilitado (pago confirmado) para guardar predicciones.'], 403);
+            }
+
+            return back()->with('error', 'Debes estar habilitado para guardar predicciones.');
         }
 
         DB::transaction(function () use ($request, $data): void {
@@ -62,10 +80,14 @@ class PollaController extends Controller
             }
         });
 
-        return response()->json(['success' => true, 'saved' => count($data['predictions'])]);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'saved' => count($data['predictions'])]);
+        }
+
+        return redirect()->route('predictions')->with('success', 'Pronósticos guardados correctamente.');
     }
 
-    public function leaderboard(): JsonResponse
+    public function leaderboard(): View
     {
         $users = DB::table('users')
             ->leftJoin('predictions', 'predictions.user_id', '=', 'users.id')
@@ -81,16 +103,27 @@ class PollaController extends Controller
                 DB::raw('COUNT(predictions.id) as total_predictions'),
             ]);
 
-        return response()->json($users);
+        return view('polla.leaderboard', compact('users'));
     }
 
-    public function results(Request $request, PollaSettings $settings): JsonResponse
+    public function results(Request $request, PollaSettings $settings): View|JsonResponse
     {
-        if (! $request->user()->isAdmin() && ! $settings->deadlinePassed()) {
-            return response()->json(['error' => 'Los resultados estarán disponibles después de la fecha límite.'], 403);
+        $deadlinePassed = $settings->deadlinePassed();
+        $isAdmin = $request->user()->isAdmin();
+
+        if (! $isAdmin && ! $deadlinePassed) {
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'Los resultados estarán disponibles después de la fecha límite.'], 403);
+            }
         }
 
-        return response()->json($this->resultsPayload());
+        $payload = $this->resultsPayload();
+
+        return view('polla.results', [
+            ...$payload,
+            'isAdmin' => $isAdmin,
+            'deadlinePassed' => $deadlinePassed,
+        ]);
     }
 
     public function resultsPayload(): array

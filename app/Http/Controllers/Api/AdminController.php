@@ -8,35 +8,43 @@ use App\Models\User;
 use App\Services\PollaSettings;
 use App\Services\ScoringService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class AdminController extends Controller
 {
-    public function users(): JsonResponse
+    public function users(): View
     {
-        return response()->json(
-            User::query()
-                ->withCount('predictions as total_predictions')
-                ->orderByDesc('created_at')
-                ->get(['id', 'username', 'role', 'has_paid', 'created_at'])
-        );
+        $users = User::query()
+            ->withCount('predictions as total_predictions')
+            ->orderByDesc('created_at')
+            ->get(['id', 'username', 'role', 'has_paid', 'created_at']);
+
+        return view('admin.users', compact('users'));
     }
 
-    public function updatePayment(Request $request, User $user): JsonResponse
+    public function updatePayment(Request $request, User $user): RedirectResponse|JsonResponse
     {
         $data = $request->validate(['has_paid' => ['required', 'boolean']]);
         $user->update(['has_paid' => $data['has_paid']]);
 
-        return response()->json(['success' => true]);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        $status = $data['has_paid'] ? 'habilitado' : 'deshabilitado';
+
+        return redirect()->route('admin.users')->with('success', "Pago de {$user->username} {$status}.");
     }
 
-    public function settings(PollaSettings $settings): JsonResponse
+    public function settings(PollaSettings $settings): View
     {
-        return response()->json($settings->all());
+        return view('admin.settings', ['settings' => $settings->all()]);
     }
 
-    public function saveSettings(Request $request, PollaSettings $settings): JsonResponse
+    public function saveSettings(Request $request, PollaSettings $settings): RedirectResponse|JsonResponse
     {
         $data = $request->validate([
             'points_exact' => ['sometimes', 'integer', 'min:0', 'max:99'],
@@ -48,10 +56,14 @@ class AdminController extends Controller
             $settings->upsert($key, $value ?? '');
         }
 
-        return response()->json(['success' => true, 'settings' => $settings->all()]);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'settings' => $settings->all()]);
+        }
+
+        return redirect()->route('admin.settings')->with('success', 'Configuración guardada.');
     }
 
-    public function saveResults(Request $request): JsonResponse
+    public function saveResults(Request $request): RedirectResponse|JsonResponse
     {
         $data = $request->validate([
             'results' => ['required', 'array'],
@@ -69,16 +81,30 @@ class AdminController extends Controller
             }
         });
 
-        return response()->json(['success' => true]);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        return redirect()->route('admin.settings')->with('success', 'Resultados guardados. No olvides recalcular los puntajes.');
     }
 
-    public function calculate(ScoringService $scoring): JsonResponse
+    public function calculate(Request $request, ScoringService $scoring): RedirectResponse|JsonResponse
     {
-        return response()->json(['success' => true, ...$scoring->calculate()]);
+        $result = $scoring->calculate();
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, ...$result]);
+        }
+
+        return redirect()->route('admin.settings')->with('success', "Puntajes recalculados: {$result['updated']} pronósticos actualizados.");
     }
 
-    public function resultsDetail(PollaController $polla): JsonResponse
+    public function resultsDetail(PollaController $polla): View
     {
-        return response()->json($polla->resultsPayload());
+        return view('polla.results', [
+            ...$polla->resultsPayload(),
+            'isAdmin' => true,
+            'deadlinePassed' => true,
+        ]);
     }
 }
