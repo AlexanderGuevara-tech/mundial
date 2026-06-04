@@ -3,6 +3,28 @@
 @section('title', 'Configuración')
 
 @section('content')
+{{-- Admin navigation tabs --}}
+<div class="mb-8 border-b border-gray-200">
+    <nav class="flex gap-6 -mb-px">
+        <a href="{{ route('admin.settings') }}"
+            class="pb-3 text-sm font-medium border-b-2 {{ request()->routeIs('admin.settings') ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+            ⚙️ Configuración
+        </a>
+        <a href="{{ route('admin.users') }}"
+            class="pb-3 text-sm font-medium border-b-2 {{ request()->routeIs('admin.users') ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+            👥 Usuarios
+        </a>
+        <a href="{{ route('admin.results') }}"
+            class="pb-3 text-sm font-medium border-b-2 {{ request()->routeIs('admin.results') ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+            🏆 Resultados
+        </a>
+        <a href="{{ route('admin.results.detail') }}"
+            class="pb-3 text-sm font-medium border-b-2 {{ request()->routeIs('admin.results.detail') ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+            📊 Detalle
+        </a>
+    </nav>
+</div>
+
 <div class="max-w-lg mx-auto">
     <h1 class="text-2xl font-bold mb-6">Configuración de la Quiniela</h1>
 

@@ -85,7 +85,7 @@ class AdminController extends Controller
             return response()->json(['success' => true]);
         }
 
-        return redirect()->route('admin.settings')->with('success', 'Resultados guardados. No olvides recalcular los puntajes.');
+        return redirect()->route('admin.results')->with('success', 'Resultados guardados. No olvides recalcular los puntajes.');
     }
 
     public function calculate(Request $request, ScoringService $scoring): RedirectResponse|JsonResponse
@@ -96,7 +96,18 @@ class AdminController extends Controller
             return response()->json(['success' => true, ...$result]);
         }
 
-        return redirect()->route('admin.settings')->with('success', "Puntajes recalculados: {$result['updated']} pronósticos actualizados.");
+        return redirect()->route('admin.results')->with('success', "Puntajes recalculados: {$result['updated']} pronósticos actualizados.");
+    }
+
+    public function results(): View
+    {
+        $matches = GameMatch::query()
+            ->orderBy('group_name')
+            ->orderBy('match_date')
+            ->orderBy('id')
+            ->get();
+
+        return view('admin.results', compact('matches'));
     }
 
     public function resultsDetail(PollaController $polla): View

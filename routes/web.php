@@ -46,6 +46,7 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/configuracion', [AdminController::class, 'saveSettings'])->name('settings.save');
         Route::get('/usuarios', [AdminController::class, 'users'])->name('users');
         Route::put('/usuarios/{user}/pago', [AdminController::class, 'updatePayment'])->name('users.payment');
+        Route::get('/resultados', [AdminController::class, 'results'])->name('results');
         Route::post('/resultados', [AdminController::class, 'saveResults'])->name('results.save');
         Route::post('/calcular', [AdminController::class, 'calculate'])->name('calculate');
         Route::get('/resultados-detalle', [AdminController::class, 'resultsDetail'])->name('results.detail');
